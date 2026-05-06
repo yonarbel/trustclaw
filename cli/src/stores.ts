@@ -4,7 +4,9 @@ import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { spinner, log } from "@clack/prompts";
 import {
+  deleteEnvVars,
   fetchProjectEnvValue,
+  listProjectEnvKeys,
   type ProjectEnvLookupArgs,
 } from "./vercel-env.js";
 
@@ -121,6 +123,50 @@ async function pollForEnvVar(
   return null;
 }
 
+// Env var prefixes Neon/Postgres marketplace integrations inject. We treat
+// these as orphans (and clean them up) when DATABASE_URL is missing — they're
+// leftovers from a prior partial connect that block fresh `integration add`.
+function isPostgresEnvVar(key: string): boolean {
+  return (
+    key === "DATABASE_URL" ||
+    key === "DATABASE_URL_UNPOOLED" ||
+    key === "POSTGRES_URL" ||
+    key === "POSTGRES_URL_NON_POOLING" ||
+    key === "POSTGRES_PRISMA_URL" ||
+    key === "POSTGRES_URL_NO_SSL" ||
+    key === "POSTGRES_USER" ||
+    key === "POSTGRES_HOST" ||
+    key === "POSTGRES_PASSWORD" ||
+    key === "POSTGRES_DATABASE" ||
+    key === "PGHOST" ||
+    key === "PGHOST_UNPOOLED" ||
+    key === "PGUSER" ||
+    key === "PGPASSWORD" ||
+    key === "PGDATABASE" ||
+    key === "NEON_PROJECT_ID"
+  );
+}
+
+function isRedisEnvVar(key: string): boolean {
+  return (
+    key === "REDIS_URL" ||
+    key === "KV_URL" ||
+    key === "KV_REST_API_URL" ||
+    key === "KV_REST_API_TOKEN" ||
+    key === "KV_REST_API_READ_ONLY_TOKEN"
+  );
+}
+
+async function cleanupOrphanEnvVars(
+  lookup: ProjectEnvLookupArgs,
+  predicate: (key: string) => boolean,
+): Promise<number> {
+  const allKeys = await listProjectEnvKeys(lookup);
+  const orphans = new Set([...allKeys].filter(predicate));
+  if (orphans.size === 0) return 0;
+  return deleteEnvVars(lookup, orphans);
+}
+
 async function provisionPostgres(args: ProvisionArgs): Promise<string> {
   const s = spinner();
   s.start("Checking project for an existing Postgres connection");
@@ -135,6 +181,14 @@ async function provisionPostgres(args: ProvisionArgs): Promise<string> {
       s.stop("Postgres already connected - reusing existing DATABASE_URL");
       return v;
     }
+  }
+
+  // Wipe any orphan PG/POSTGRES/NEON env vars left behind by a prior partial
+  // connect. Vercel's `integration add` 400s with "existing environment
+  // variable with name PGDATABASE" if these stick around.
+  const cleaned = await cleanupOrphanEnvVars(lookup, isPostgresEnvVar);
+  if (cleaned > 0) {
+    s.message(`Cleaned up ${cleaned} orphan Postgres env vars from prior run`);
   }
 
   s.message("Provisioning Neon Postgres via `vercel integration add neon`");
@@ -192,6 +246,11 @@ async function provisionRedis(args: ProvisionArgs): Promise<string> {
       s.stop("Redis already connected - reusing existing REDIS_URL");
       return v;
     }
+  }
+
+  const cleaned = await cleanupOrphanEnvVars(lookup, isRedisEnvVar);
+  if (cleaned > 0) {
+    s.message(`Cleaned up ${cleaned} orphan Redis env vars from prior run`);
   }
 
   s.message("Provisioning Redis via `vercel integration add redis`");

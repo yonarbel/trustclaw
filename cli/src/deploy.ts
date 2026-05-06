@@ -8,6 +8,7 @@ import {
   detectLocalRepo,
   confirmLocalPublish,
   publishLocalCopy,
+  cloneForkLocally,
 } from "./local-repo.js";
 import { applyPlanConfig } from "./cron-config.js";
 import { createVercelProject, disableDeploymentProtection } from "./vercel.js";
@@ -77,6 +78,10 @@ export async function deploy(): Promise<void> {
     const remaining = await gatherRemainingInputs({ existingEnvKeys });
 
     let repo: string;
+    // Path to a directory with a working prisma/schema.prisma. In local mode
+    // it's the user's checkout; in fork mode we clone the fork into a temp
+    // dir so prisma db push has a place to run.
+    let migrationRepoRoot: string | undefined;
     if (localRepo) {
       const choice = await confirmLocalPublish(localRepo, cachedConfig.githubRepoName);
       if (choice) {
@@ -89,11 +94,20 @@ export async function deploy(): Promise<void> {
           currentBranch: localRepo.currentBranch,
         }));
         await saveConfig(localRepo.rootDir, { githubRepoName: choice.repoName });
+        migrationRepoRoot = localRepo.rootDir;
       } else {
         ({ repo } = await forkRepo(auth.githubToken, auth.githubUsername));
+        migrationRepoRoot = await cloneForkLocally({
+          repoSlug: repo,
+          token: auth.githubToken,
+        });
       }
     } else {
       ({ repo } = await forkRepo(auth.githubToken, auth.githubUsername));
+      migrationRepoRoot = await cloneForkLocally({
+        repoSlug: repo,
+        token: auth.githubToken,
+      });
     }
 
     const project = await createVercelProject({
@@ -136,7 +150,10 @@ export async function deploy(): Promise<void> {
       hasCronSecret: existingEnvKeys.has("CRON_SECRET"),
     });
 
-    await runMigration(stores.databaseUrl);
+    await runMigration({
+      databaseUrl: stores.databaseUrl,
+      repoRoot: migrationRepoRoot,
+    });
 
     const result = await triggerProductionDeploy({
       token: auth.vercelToken,

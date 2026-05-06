@@ -29,15 +29,34 @@ async function findRepoRoot(): Promise<string> {
   );
 }
 
-export async function runMigration(databaseUrl: string): Promise<void> {
+interface RunMigrationArgs {
+  databaseUrl: string;
+  /**
+   * Absolute path to a directory containing `prisma/schema.prisma`. Required
+   * when the CLI is running outside any local trustclaw clone (the fork
+   * deploy path) — pass the path returned by `cloneForkLocally`. If omitted,
+   * we'll search for the schema in/around `process.cwd()`.
+   */
+  repoRoot?: string;
+}
+
+export async function runMigration(args: RunMigrationArgs): Promise<void> {
   const s = spinner();
   s.start("Running database migration (prisma db push)");
 
   try {
-    const repoRoot = await findRepoRoot();
-    await exec("pnpm prisma db push --accept-data-loss", {
+    const repoRoot = args.repoRoot ?? (await findRepoRoot());
+    if (!existsSync(join(repoRoot, "prisma", "schema.prisma"))) {
+      throw new Error(
+        `prisma/schema.prisma not found at ${repoRoot}. The provided repoRoot is wrong.`,
+      );
+    }
+    // Use `pnpm dlx` so the command works even when the cloned fork hasn't
+    // had `pnpm install` run on it (the typical fork-deploy case). Pin to
+    // the same major as the repo's lockfile to stay schema-compatible.
+    await exec("pnpm dlx prisma@^7.3.0 db push --accept-data-loss", {
       cwd: repoRoot,
-      env: { ...process.env, DATABASE_URL: databaseUrl },
+      env: { ...process.env, DATABASE_URL: args.databaseUrl },
     });
     s.stop("Schema applied");
   } catch (err) {

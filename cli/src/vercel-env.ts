@@ -11,6 +11,38 @@ export interface ProjectEnvLookupArgs {
 }
 
 /**
+ * Delete a set of env vars from a Vercel project. Useful for cleaning up
+ * orphan env vars left behind by failed marketplace integration connects.
+ * Returns the count of vars actually deleted.
+ */
+export async function deleteEnvVars(
+  args: ProjectEnvLookupArgs,
+  keysToDelete: Set<string>,
+): Promise<number> {
+  const url = args.teamId
+    ? `https://api.vercel.com/v10/projects/${args.projectId}/env?teamId=${args.teamId}`
+    : `https://api.vercel.com/v10/projects/${args.projectId}/env`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${args.token}` },
+  });
+  if (!res.ok) return 0;
+  const data = (await res.json()) as { envs: VercelEnvVar[] };
+  let deleted = 0;
+  for (const env of data.envs) {
+    if (!keysToDelete.has(env.key)) continue;
+    const delUrl = args.teamId
+      ? `https://api.vercel.com/v9/projects/${args.projectId}/env/${env.id}?teamId=${args.teamId}`
+      : `https://api.vercel.com/v9/projects/${args.projectId}/env/${env.id}`;
+    const delRes = await fetch(delUrl, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${args.token}` },
+    });
+    if (delRes.ok) deleted++;
+  }
+  return deleted;
+}
+
+/**
  * List the names of all env vars set on a Vercel project.
  * Cheap - no decryption required since we only need to know which keys exist.
  */

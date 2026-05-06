@@ -1,6 +1,7 @@
 import { exec as _exec } from "child_process";
 import { promisify } from "util";
-import { readFile } from "fs/promises";
+import { readFile, mkdir } from "fs/promises";
+import { tmpdir } from "os";
 import { join } from "path";
 import { spinner, log, confirm, isCancel, cancel, text } from "@clack/prompts";
 
@@ -114,6 +115,36 @@ export async function publishLocalCopy(args: PublishArgs): Promise<{ repo: strin
 
   s.stop(`Pushed to ${targetRepo}`);
   return { repo: targetRepo };
+}
+
+/**
+ * Clone a GitHub repo to a temp dir using token-based auth. Used by the fork
+ * deploy path (`pnpm dlx @composio/trustclaw deploy` from a non-trustclaw
+ * directory) so we have a local checkout to run prisma migrations against.
+ *
+ * Returns the absolute path to the clone.
+ */
+export async function cloneForkLocally(args: {
+  repoSlug: string;
+  token: string;
+}): Promise<string> {
+  const { repoSlug, token } = args;
+  const targetDir = join(tmpdir(), `trustclaw-fork-${Date.now()}`);
+  await mkdir(targetDir, { recursive: true });
+
+  const s = spinner();
+  s.start(`Cloning ${repoSlug} for migration step`);
+  const cloneUrl = `https://x-access-token:${token}@github.com/${repoSlug}.git`;
+  try {
+    await exec(`git clone --depth 1 ${cloneUrl} ${targetDir}`);
+    s.stop(`Cloned ${repoSlug} to ${targetDir}`);
+  } catch (err) {
+    s.stop(`Failed to clone ${repoSlug}`);
+    throw new Error(
+      `git clone failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  return targetDir;
 }
 
 export async function confirmLocalPublish(
