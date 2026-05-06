@@ -79,9 +79,13 @@ async function addIntegration(args: {
   // We *don't* pass --non-interactive: we want Vercel to be free to open a
   // browser when additional setup (e.g. accepting marketplace terms,
   // choosing a region) is required.
+  //
+  // Use `pnpm dlx vercel` rather than bare `vercel` so the CLI works for users
+  // who haven't run `npm i -g vercel`. pnpm caches the package after first
+  // download, so subsequent invocations are fast.
   const planFlag = args.plan ? ` --plan ${args.plan}` : "";
   const cmd =
-    `vercel integration add ${args.integrationSlug}` +
+    `pnpm dlx vercel@latest integration add ${args.integrationSlug}` +
     ` --name ${args.resourceName}` +
     ` -e production -e preview -e development` +
     ` --no-env-pull${planFlag}`;
