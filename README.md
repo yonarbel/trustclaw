@@ -22,18 +22,7 @@ Click here to use the Vercel Template:
 npx @composio/trustclaw deploy
 ```
 
-That's it. The CLI handles the entire flow:
-
-- ✅ Forks (or publishes) the repo to your GitHub
-- ✅ Creates a Vercel project linked to it
-- ✅ Provisions Postgres + pgvector via Vercel Marketplace (and optionally Upstash Redis for resumable streams)
-- ✅ Auto-generates `BETTER_AUTH_SECRET` and `CRON_SECRET`
-- ✅ Generates a free [Composio API key](https://dashboard.composio.dev/login?next=%2F~%2Fproject%2Fsettings%2Fapi-keys&flow=developer) (~30 sec signup)
-- ✅ Runs the Prisma schema sync against your fresh database
-- ✅ Triggers the production deploy and opens the URL in your browser
-- ✅ Optionally walks you through Telegram bot setup (skip if you don't want it)
-- ✅ Tunes config (cron schedule, function timeouts) for your Vercel plan
-- ✅ Re-running picks up where it left off - no double-provisioning, no clobbering existing secrets
+That's it. The CLI handles the entire flow.
 
 **Prerequisites:**
 
@@ -114,6 +103,8 @@ The design choices:
 - [Composio SDK](https://composio.dev) for tool integrations
 - [Tailwind CSS](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com)
 - Redis (resumable streams, optional)
+
+**VERCEL FREE PLAN LIMITATIONS**: If you are are using a free plan of vercel, long running agent turns may timeout. Additoinally, the CRON can trigger at most once day, therefore, even if you schedule items to run at specific times during the day, the CRON will only hit once per day.
 
 ---
 
