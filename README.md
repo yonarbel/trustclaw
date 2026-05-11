@@ -104,7 +104,7 @@ The design choices:
 - [Tailwind CSS](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com)
 - Redis (resumable streams, optional)
 
-**VERCEL FREE PLAN LIMITATIONS**: If you are are using a free plan of vercel, long running agent turns may timeout. Additoinally, the CRON can trigger at most once day, therefore, even if you schedule items to run at specific times during the day, the CRON will only hit once per day.
+**VERCEL FREE PLAN LIMITATIONS**: If you are are using a free plan of vercel, long running agent turns may timeout. Additoinally, the CRON can trigger at most once day, therefore, even if you schedule items to run at specific times during the day, the CRON will only hit once per day. To avoid these concerns, upgrade your Vercel plan.
 
 ---
 
