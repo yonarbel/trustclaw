@@ -32,23 +32,6 @@ That's it. The CLI handles the entire flow.
 
 LLM and embedding calls route through Vercel AI Gateway - **no Anthropic or OpenAI API keys required.**
 
-### ⚠️ Heads-up about the Vercel free (Hobby) plan
-
-TrustClaw runs fine on the free Hobby plan, but Vercel applies two limits that affect the agent:
-
-- **Cron jobs can only run once per day**, and even then they fire anywhere within a 60-minute window of the scheduled hour. Any cron expression more frequent than daily (e.g. hourly, every-30-min) **fails at deploy time** on Hobby. The CLI auto-adjusts `vercel.json` to a daily schedule when it detects you're on Hobby.
-- **Functions are capped at 300s (5 min)** — long-running agent turns may time out.
-
-To get **per-minute cron precision** and **up to 800s (~13 min) per function**, upgrade to [Vercel Pro](https://vercel.com/pricing) and re-run the CLI (or manually flip `vercel.json` back to `* * * * *` + bump `maxDuration`).
-
-### ⚠️ No rate-limiting or billing out of the box
-
-TrustClaw ships **without** rate limiting, per-user usage caps, or billing logic. If you put a TrustClaw instance on the public internet for strangers to sign up to, **any user can drain your Composio + AI Gateway credits indefinitely**. Before opening signups to anyone but yourself / a trusted handful of people, add at least:
-
-- A rate limiter on the chat + cron endpoints (e.g. [Upstash Rate Limit](https://upstash.com/docs/oss/sdks/ts/ratelimit/overview), [Vercel Functions Rate Limiting](https://vercel.com/docs/rate-limiting))
-- A monthly per-user message / tool-call cap enforced server-side
-- Billing or invite-only signup if you want to recoup costs
-
 ---
 
 ## ✨ Why TrustClaw
@@ -120,6 +103,27 @@ The design choices:
 - [Composio SDK](https://composio.dev) for tool integrations
 - [Tailwind CSS](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com)
 - Redis (resumable streams, optional)
+
+---
+
+## ⚠️ Before deploying to production
+
+### Heads-up about the Vercel free (Hobby) plan
+
+TrustClaw runs fine on the free Hobby plan, but Vercel applies two limits that affect the agent:
+
+- **Cron jobs can only run once per day**, and even then they fire anywhere within a 60-minute window of the scheduled hour. Any cron expression more frequent than daily (e.g. hourly, every-30-min) **fails at deploy time** on Hobby. The CLI auto-adjusts `vercel.json` to a daily schedule when it detects you're on Hobby.
+- **Functions are capped at 300s (5 min)** — long-running agent turns may time out.
+
+To get **per-minute cron precision** and **up to 800s (~13 min) per function**, upgrade to [Vercel Pro](https://vercel.com/pricing) and re-run the CLI (or manually flip `vercel.json` back to `* * * * *` + bump `maxDuration`).
+
+### No rate-limiting or billing out of the box
+
+TrustClaw ships **without** rate limiting, per-user usage caps, or billing logic. If you put a TrustClaw instance on the public internet for strangers to sign up to, **any user can drain your Composio + AI Gateway credits indefinitely**. Before opening signups to anyone but yourself / a trusted handful of people, add at least:
+
+- A rate limiter on the chat + cron endpoints (e.g. [Upstash Rate Limit](https://upstash.com/docs/oss/sdks/ts/ratelimit/overview), [Vercel WAF Rate Limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting))
+- A monthly per-user message / tool-call cap enforced server-side
+- Billing or invite-only signup if you want to recoup costs
 
 ---
 
