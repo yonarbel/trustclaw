@@ -77,6 +77,11 @@ const config = {
   // Transpile packages if needed
   transpilePackages: [],
 
+  // Don't bundle these server-side packages — Next.js will `require()` them
+  // at runtime from node_modules instead. Required for `node-mashov`, which
+  // ships a UMD bundle whose ESM interop breaks when bundled by Webpack.
+  serverExternalPackages: ["node-mashov"],
+
   // Strict mode for better debugging
   typescript: {
     ignoreBuildErrors: false,

@@ -1,14 +1,35 @@
 import "server-only";
+import { createRequire } from "node:module";
 // node-mashov ships a UMD bundle whose ESM `import * as` namespace is
 // polluted with internals; the real public API (`Client`, `fetchSchools`)
-// lives under `.default`. Types come from the package's index.d.ts.
-import nodeMashov, { type Client as ClientType, type School } from "node-mashov";
+// lives under `.default` when loaded via Node's CJS interop, but may be
+// at the top level depending on the loader. We mark this package as
+// `serverExternalPackages` in next.config.js to skip Webpack bundling,
+// then use createRequire to load it via Node's normal CJS path and probe
+// both export shapes to be safe.
+import type { Client as ClientType, School } from "node-mashov";
 import { env } from "~/env";
 
-const { Client, fetchSchools } = nodeMashov as unknown as {
+interface MashovExports {
   Client: new () => ClientType;
   fetchSchools: () => Promise<School[]>;
+}
+
+const requireFromHere = createRequire(import.meta.url);
+const loaded = requireFromHere("node-mashov") as Partial<MashovExports> & {
+  default?: Partial<MashovExports>;
 };
+const api: MashovExports =
+  typeof loaded.fetchSchools === "function" && loaded.Client
+    ? (loaded as MashovExports)
+    : loaded.default && typeof loaded.default.fetchSchools === "function"
+      ? (loaded.default as MashovExports)
+      : (() => {
+          throw new Error(
+            "node-mashov import failed: neither top-level nor .default exposes Client/fetchSchools",
+          );
+        })();
+const { Client, fetchSchools } = api;
 
 interface MashovCreds {
   username: string;
