@@ -3,8 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "~/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
 import { trpc } from "~/clients/trpc";
 import {
+  showSuccessToast,
+  showTrpcErrorToast,
   trpcToastOnError,
 } from "~/components/core/toast-notifications";
 import type { RouterOutputs } from "~/clients/trpc";
@@ -17,11 +30,15 @@ interface ToolkitCardProps {
 
 export function ToolkitCard({ toolkit }: ToolkitCardProps) {
   const [logoLoaded, setLogoLoaded] = useState(false);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
   const router = useRouter();
 
   const utils = trpc.useUtils();
   const getAuthLink = trpc.toolkits.getAuthLink.useMutation({
     onError: trpcToastOnError,
+    onSuccess: () => void utils.toolkits.getToolkits.invalidate(),
+  });
+  const disconnectMutation = trpc.toolkits.disconnect.useMutation({
     onSuccess: () => void utils.toolkits.getToolkits.invalidate(),
   });
 
@@ -31,6 +48,8 @@ export function ToolkitCard({ toolkit }: ToolkitCardProps) {
     : toolkit.noAuth
       ? "Active"
       : null;
+  // noAuth toolkits have no connection to revoke
+  const canDisconnect = toolkit.connected && !toolkit.noAuth;
 
   const handleConnect = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -42,6 +61,16 @@ export function ToolkitCard({ toolkit }: ToolkitCardProps) {
       router.push(redirectUrl);
     } catch {
       // trpcToastOnError already handles the toast
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnectMutation.mutateAsync({ toolkit: toolkit.slug });
+      showSuccessToast(`Disconnected ${toolkit.name}`);
+      setDisconnectOpen(false);
+    } catch (error) {
+      showTrpcErrorToast(error);
     }
   };
 
@@ -77,9 +106,66 @@ export function ToolkitCard({ toolkit }: ToolkitCardProps) {
           {/* Top-right: status badge or connect button */}
           <div className="absolute right-3 top-3 z-[1]">
             {isConnected ? (
-              <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                {statusLabel}
-              </span>
+              canDisconnect ? (
+                <AlertDialog
+                  open={disconnectOpen}
+                  onOpenChange={setDisconnectOpen}
+                >
+                  <AlertDialogTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={(e) => e.stopPropagation()}
+                      className="group/badge inline-flex items-center rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-600 transition-colors hover:bg-destructive/15 hover:text-destructive dark:text-green-400"
+                      aria-label={`Disconnect ${toolkit.name}`}
+                    >
+                      <span className="group-hover/badge:hidden">
+                        {statusLabel}
+                      </span>
+                      <span className="hidden group-hover/badge:inline">
+                        Disconnect
+                      </span>
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent
+                    onClick={(e) => e.stopPropagation()}
+                    size="sm"
+                  >
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        Disconnect {toolkit.name}?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Your agent will lose access to {toolkit.name} tools and
+                        any actions that depend on it will stop working. You
+                        can reconnect at any time.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel
+                        disabled={disconnectMutation.isPending}
+                      >
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        disabled={disconnectMutation.isPending}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          void handleDisconnect();
+                        }}
+                      >
+                        {disconnectMutation.isPending
+                          ? "Disconnecting..."
+                          : "Disconnect"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                  {statusLabel}
+                </span>
+              )
             ) : (
               <Button
                 size="sm"

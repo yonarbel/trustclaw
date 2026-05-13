@@ -28,6 +28,15 @@ export const env = createEnv({
     // /api/cron/* endpoints. Vercel auto-injects this when crons are configured
     // in vercel.json; the trustclaw deploy CLI also generates one on first deploy.
     CRON_SECRET: z.string(),
+
+    // Signup gate. By default, signup is only allowed when the database has
+    // zero users (initial deployment). Set ALLOW_SIGNUPS=true to temporarily
+    // re-open signup, e.g. to invite a second user. Set ALLOW_SIGNUPS=false
+    // (or leave unset) to lock signup once the first user is provisioned.
+    ALLOW_SIGNUPS: z
+      .string()
+      .optional()
+      .transform((v) => v === "true"),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
@@ -43,6 +52,7 @@ export const env = createEnv({
     DATABASE_URL: process.env.DATABASE_URL,
     REDIS_URL: process.env.REDIS_URL,
     CRON_SECRET: process.env.CRON_SECRET,
+    ALLOW_SIGNUPS: process.env.ALLOW_SIGNUPS,
 
     // Client URL resolution:
     //  - dev: derive from PORT so `PORT=3001 pnpm dev` just works

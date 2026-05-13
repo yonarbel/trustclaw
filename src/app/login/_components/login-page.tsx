@@ -12,9 +12,13 @@ import { showErrorToast } from "~/components/core/toast-notifications";
 
 interface LoginPageProps {
   firstTime?: boolean;
+  signupEnabled?: boolean;
 }
 
-export function LoginPage({ firstTime = false }: LoginPageProps) {
+export function LoginPage({
+  firstTime = false,
+  signupEnabled = false,
+}: LoginPageProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -75,9 +79,13 @@ export function LoginPage({ firstTime = false }: LoginPageProps) {
 
         <div className="bg-card rounded-lg border p-6 shadow-sm">
           <Tabs defaultValue={firstTime ? "register" : "login"}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList
+              className={`grid w-full ${signupEnabled ? "grid-cols-2" : "grid-cols-1"}`}
+            >
               <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="register">Register</TabsTrigger>
+              {signupEnabled && (
+                <TabsTrigger value="register">Register</TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="login" className="mt-4">
@@ -110,60 +118,62 @@ export function LoginPage({ firstTime = false }: LoginPageProps) {
               </form>
             </TabsContent>
 
-            <TabsContent value="register" className="mt-4">
-              <form className="space-y-4" onSubmit={handleRegister}>
-                <div className="space-y-2">
-                  <Label htmlFor="reg-name">Name</Label>
-                  <Input
-                    id="reg-name"
-                    type="text"
-                    autoComplete="name"
-                    required
-                    value={regName}
-                    onChange={(e) => setRegName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reg-email">Email</Label>
-                  <Input
-                    id="reg-email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reg-username">Username</Label>
-                  <Input
-                    id="reg-username"
-                    type="text"
-                    autoComplete="username"
-                    required
-                    minLength={3}
-                    maxLength={30}
-                    value={regUsername}
-                    onChange={(e) => setRegUsername(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reg-password">Password</Label>
-                  <Input
-                    id="reg-password"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={pending}>
-                  {pending ? "Creating account..." : "Create account"}
-                </Button>
-              </form>
-            </TabsContent>
+            {signupEnabled && (
+              <TabsContent value="register" className="mt-4">
+                <form className="space-y-4" onSubmit={handleRegister}>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-name">Name</Label>
+                    <Input
+                      id="reg-name"
+                      type="text"
+                      autoComplete="name"
+                      required
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-email">Email</Label>
+                    <Input
+                      id="reg-email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-username">Username</Label>
+                    <Input
+                      id="reg-username"
+                      type="text"
+                      autoComplete="username"
+                      required
+                      minLength={3}
+                      maxLength={30}
+                      value={regUsername}
+                      onChange={(e) => setRegUsername(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-password">Password</Label>
+                    <Input
+                      id="reg-password"
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      minLength={8}
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={pending}>
+                    {pending ? "Creating account..." : "Create account"}
+                  </Button>
+                </form>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </div>

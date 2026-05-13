@@ -76,3 +76,4 @@ docs/state/*
 
 # CLI build output
 cli/dist/
+.fly/

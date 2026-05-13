@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { username } from "better-auth/plugins";
@@ -50,6 +51,26 @@ export const auth = betterAuth({
     ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
   ],
   database: prismaAdapter(db, { provider: "postgresql" }),
+  // Signup gate: only the first user can register. Set ALLOW_SIGNUPS=true to
+  // temporarily re-open registration (e.g. to invite a second user). This runs
+  // for ALL user-creation code paths (email/password today, any future OAuth
+  // provider), not just /sign-up/email.
+  databaseHooks: {
+    user: {
+      create: {
+        before: async () => {
+          if (env.ALLOW_SIGNUPS) return;
+          const existingUsers = await db.user.count();
+          if (existingUsers > 0) {
+            throw new APIError("FORBIDDEN", {
+              message:
+                "Signup is disabled on this deployment. Contact the administrator.",
+            });
+          }
+        },
+      },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
