@@ -174,7 +174,11 @@ export function createMashovTool(
       "Use this when the user asks about their schedule, homework, grades,",
       "behavior, attendance, or messages from teachers.",
       "For homework: use get_homework (the primary homework endpoint).",
+      "For messages/announcements from teachers: use get_messages.",
       "Default window is last 7 days; pass `daysBack` for longer periods.",
+      "CRITICAL: If a tool result has `count > 0`, you MUST report those",
+      "items to the user — do not claim 'nothing was found' when the tool",
+      "returned real data. Only say nothing was found when count === 0.",
       "Day numbers: 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday,",
       "6=Friday. Saturday has no school in Israel.",
     ].join(" "),
@@ -406,12 +410,16 @@ export function createMashovTool(
             return {
               windowDays: daysBack,
               count: filtered.length,
+              // NOTE: `isNew` is intentionally NOT included — Mashov flips
+              // it to false on the server as soon as the API is hit, which
+              // makes it unreliable as a "user hasn't read this" signal.
+              // Treat every conversation in the window as a real message
+              // the parent received, ordered newest first.
               conversations: filtered.map((c) => {
                 const head = c.messages[0];
                 return {
                   id: c.conversationId,
                   subject: c.subject,
-                  isNew: c.isNew,
                   hasAttachments: c.hasAttachments,
                   preventReply: c.preventReply,
                   messageCount: c.messages.length,
@@ -420,7 +428,7 @@ export function createMashovTool(
                 };
               }),
               note:
-                "Use get_message with the `id` of an interesting conversation to read its full body.",
+                "Each entry is a real conversation. Use get_message with the `id` to read the body. Newest first.",
             };
           }
 

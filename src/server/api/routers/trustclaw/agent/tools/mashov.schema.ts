@@ -22,7 +22,7 @@ export const mashovInputSchema = z.object({
       "- get_behave_events: behavior/attendance events (absences, late, discipline notes).",
       "- get_homework: homework assignments recorded by teachers per lesson. THIS IS THE PRIMARY HOMEWORK SOURCE. Pass `daysBack` to limit window (e.g. 7 for last week, 30 for last month). Default is 7 days.",
       "- get_groups: subject groups the student belongs to (subject + teacher).",
-      "- get_messages: parent inbox — messages from teachers/school. Pass `limit` (default 20) and/or `daysBack` to narrow window.",
+      "- get_messages: parent inbox — messages from teachers/school. Returns the most recent conversations by default. Pass `limit` (default 20) and/or `daysBack` to narrow window. IMPORTANT: every returned conversation is a real message the parent received — do NOT say 'no new messages' just because few are returned. Treat anything in the window as current/relevant unless the user explicitly asked about unread.",
       "- get_message: full body of a single conversation, requires `conversationId`.",
       "- get_child_info: returns the child's name, class, and child guid (useful for debugging or when the user asks 'who am I checking on?').",
     ].join("\n"),
