@@ -56,14 +56,14 @@ interface BehaveEntry {
   timestamp: string;
 }
 
-interface LessonHistoryEntry {
+interface HomeworkEntry {
   lessonId: number;
   lessonDate: string;
   lesson: number;
   groupId: number;
-  subject: string;
-  remark?: string;
+  subjectName: string;
   homework?: string;
+  remark?: string;
 }
 
 interface GroupEntry {
@@ -73,17 +73,25 @@ interface GroupEntry {
   groupTeachers: { teacherGuid: string; teacherName: string }[];
 }
 
+interface ConversationMessage {
+  messageId: string;
+  senderId: string;
+  senderName: string;
+  subject: string;
+  body?: string;
+  sendTime: string;
+  isNew: boolean;
+  recipients?: { displayName: string }[];
+}
+
 interface ConversationSummary {
   conversationId: string;
-  subject?: string;
-  isNew?: boolean;
-  hasAttachments?: boolean;
-  messages?: number;
-  participants?: { name: string }[];
-  updated?: string;
-  messageDate?: string;
-  sendDate?: string;
-  body?: string;
+  subject: string;
+  sendTime: string;
+  isNew: boolean;
+  hasAttachments: boolean;
+  preventReply: boolean;
+  messages: ConversationMessage[];
 }
 
 interface GradeEntry {
@@ -94,6 +102,28 @@ interface GradeEntry {
   eventDate?: string;
   subjectName?: string;
   teacherName?: string;
+}
+
+/**
+ * Strip HTML tags from a Mashov message body and collapse whitespace.
+ * Mashov stores message bodies as HTML (`<p>`, `<br>`, etc.); the agent
+ * doesn't need the markup, just the readable text.
+ */
+function stripHtml(html: string | undefined): string | undefined {
+  if (!html) return undefined;
+  return html
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /**
@@ -142,15 +172,21 @@ export function createMashovTool(
     description: [
       "Query the student's Mashov (משו\"ב) school portal account.",
       "Use this when the user asks about their schedule, homework, grades,",
-      "behavior, attendance, study materials, or messages from teachers.",
-      "For homework specifically: elementary teachers usually record homework",
-      "in the lesson log, so check get_lessons_history for recent lessons,",
-      "OR get_messages for explicit announcements.",
+      "behavior, attendance, or messages from teachers.",
+      "For homework: use get_homework (the primary homework endpoint).",
+      "Default window is last 7 days; pass `daysBack` for longer periods.",
       "Day numbers: 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday,",
       "6=Friday. Saturday has no school in Israel.",
     ].join(" "),
     inputSchema: zodSchema(mashovInputSchema),
-    execute: async ({ action, day, dayOffset, limit, conversationId }) => {
+    execute: async ({
+      action,
+      day,
+      dayOffset,
+      limit,
+      daysBack,
+      conversationId,
+    }) => {
       try {
         switch (action) {
           case "get_child_info": {
@@ -303,28 +339,36 @@ export function createMashovTool(
             };
           }
 
-          case "get_lessons_history": {
-            const lessons = await mashovGet<LessonHistoryEntry[]>({
-              path: (s) => `/students/${s.child.childGuid}/lessonshistory`,
+          case "get_homework": {
+            const entries = await mashovGet<HomeworkEntry[]>({
+              path: (s) => `/students/${s.child.childGuid}/homework`,
             });
+
+            const windowDays = daysBack ?? 7;
+            const cutoffMs =
+              Date.now() - windowDays * 24 * 60 * 60 * 1000;
+
+            // Only keep entries with actual homework text AND within the
+            // requested time window. The API often returns lesson summaries
+            // as `remark` with no `homework` — those aren't real assignments.
+            const filtered = entries
+              .filter((e) => Boolean(e.homework && e.homework.trim().length > 0))
+              .filter((e) => {
+                const dateMs = new Date(e.lessonDate).getTime();
+                return Number.isFinite(dateMs) && dateMs >= cutoffMs;
+              })
+              .sort((a, b) => b.lessonDate.localeCompare(a.lessonDate));
+
             return {
-              lessons: lessons
-                .filter((l) => {
-                  const hasHomework = Boolean(
-                    l.homework && l.homework.length > 0,
-                  );
-                  const hasRemark = Boolean(l.remark && l.remark.length > 0);
-                  return hasHomework || hasRemark;
-                })
-                .map((l) => ({
-                  date: l.lessonDate,
-                  lesson: l.lesson,
-                  subject: l.subject,
-                  remark: l.remark,
-                  homework: l.homework,
-                })),
-              note:
-                "Only lessons with a recorded homework or remark are returned. Use this to find homework assignments.",
+              windowDays,
+              count: filtered.length,
+              assignments: filtered.map((e) => ({
+                date: e.lessonDate.slice(0, 10),
+                lesson: e.lesson,
+                subject: e.subjectName,
+                homework: e.homework,
+                topic: e.remark,
+              })),
             };
           }
 
@@ -346,17 +390,37 @@ export function createMashovTool(
               path: () => `/mail/inbox/conversations`,
               query: { skip: 0, take: limit ?? 20 },
             });
+
+            const cutoffMs =
+              daysBack !== undefined
+                ? Date.now() - daysBack * 24 * 60 * 60 * 1000
+                : null;
+
+            const filtered = cutoffMs
+              ? conversations.filter((c) => {
+                  const ts = new Date(c.sendTime).getTime();
+                  return Number.isFinite(ts) && ts >= cutoffMs;
+                })
+              : conversations;
+
             return {
-              conversations: conversations.map((c) => ({
-                id: c.conversationId,
-                subject: c.subject,
-                isNew: c.isNew,
-                hasAttachments: c.hasAttachments,
-                messageCount: c.messages,
-                sender: c.participants?.[0]?.name,
-                date: c.messageDate ?? c.sendDate ?? c.updated,
-                preview: c.body?.slice(0, 280),
-              })),
+              windowDays: daysBack,
+              count: filtered.length,
+              conversations: filtered.map((c) => {
+                const head = c.messages[0];
+                return {
+                  id: c.conversationId,
+                  subject: c.subject,
+                  isNew: c.isNew,
+                  hasAttachments: c.hasAttachments,
+                  preventReply: c.preventReply,
+                  messageCount: c.messages.length,
+                  sender: head?.senderName,
+                  date: c.sendTime,
+                };
+              }),
+              note:
+                "Use get_message with the `id` of an interesting conversation to read its full body.",
             };
           }
 
@@ -364,10 +428,21 @@ export function createMashovTool(
             if (!conversationId) {
               return { error: "conversationId is required for get_message" };
             }
-            const conversation = await mashovGet<unknown>({
+            const conversation = await mashovGet<ConversationSummary>({
               path: () => `/mail/conversations/${conversationId}`,
             });
-            return { conversation };
+            return {
+              id: conversation.conversationId,
+              subject: conversation.subject,
+              date: conversation.sendTime,
+              isNew: conversation.isNew,
+              hasAttachments: conversation.hasAttachments,
+              messages: conversation.messages.map((m) => ({
+                sender: m.senderName,
+                date: m.sendTime,
+                body: stripHtml(m.body),
+              })),
+            };
           }
         }
       } catch (err) {

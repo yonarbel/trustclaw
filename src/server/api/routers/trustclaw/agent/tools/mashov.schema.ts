@@ -5,7 +5,7 @@ export const mashovActionSchema = z.enum([
   "get_bells",
   "get_grades",
   "get_behave_events",
-  "get_lessons_history",
+  "get_homework",
   "get_groups",
   "get_messages",
   "get_message",
@@ -20,9 +20,9 @@ export const mashovInputSchema = z.object({
       "- get_bells: bell schedule (start/end time per lesson number).",
       "- get_grades: per-event grades. NOTE: many elementary schools disable parent access to grades, so this often returns empty or 403.",
       "- get_behave_events: behavior/attendance events (absences, late, discipline notes).",
-      "- get_lessons_history: log of lessons that already happened, with topic/homework recorded by the teacher. THIS IS WHERE HOMEWORK ASSIGNMENTS USUALLY LIVE for elementary schools.",
+      "- get_homework: homework assignments recorded by teachers per lesson. THIS IS THE PRIMARY HOMEWORK SOURCE. Pass `daysBack` to limit window (e.g. 7 for last week, 30 for last month). Default is 7 days.",
       "- get_groups: subject groups the student belongs to (subject + teacher).",
-      "- get_messages: parent inbox — messages from teachers/school. Pass `limit` to cap results.",
+      "- get_messages: parent inbox — messages from teachers/school. Pass `limit` (default 20) and/or `daysBack` to narrow window.",
       "- get_message: full body of a single conversation, requires `conversationId`.",
       "- get_child_info: returns the child's name, class, and child guid (useful for debugging or when the user asks 'who am I checking on?').",
     ].join("\n"),
@@ -52,6 +52,15 @@ export const mashovInputSchema = z.object({
     .max(50)
     .optional()
     .describe("For get_messages only. Max number to return. Default 20."),
+  daysBack: z
+    .number()
+    .int()
+    .positive()
+    .max(365)
+    .optional()
+    .describe(
+      "For get_homework and get_messages. Return entries from within the last N days. Default 7 for homework, no filter for messages. Use 30 for last month, 90 for last quarter, 365 for the whole year.",
+    ),
   conversationId: z
     .string()
     .optional()
