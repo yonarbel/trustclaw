@@ -16,7 +16,7 @@ export function createCustomTools(
     schedule: createScheduleTool(instanceId, userTimezone),
   };
   if (isMashovConfigured()) {
-    tools.mashov = createMashovTool();
+    tools.mashov = createMashovTool(userTimezone);
   }
   return tools;
 }

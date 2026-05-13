@@ -38,15 +38,18 @@ export const env = createEnv({
       .optional()
       .transform((v) => v === "true"),
 
-    // Mashov (Israeli school portal) credentials. All four required to enable
-    // the Mashov tools; if any are missing the tools are not registered.
-    // MASHOV_SCHOOL_ID is the school's "semel" / numeric id, found via the
-    // schools list on https://web.mashov.info. MASHOV_YEAR is the academic
-    // year (e.g. 2026 for 2025-2026).
+    // Mashov (Israeli school portal) credentials. All four base vars required
+    // to enable the Mashov tools; if any are missing the tools are not
+    // registered. MASHOV_SCHOOL_ID is the school's "semel" / numeric id.
+    // MASHOV_YEAR is the academic year (e.g. 2026 for 2025-2026).
+    // MASHOV_CHILD_GUID is optional and only needed for parent accounts that
+    // have multiple children — if omitted, the single child on the account
+    // is used automatically.
     MASHOV_USERNAME: z.string().optional(),
     MASHOV_PASSWORD: z.string().optional(),
     MASHOV_SCHOOL_ID: z.coerce.number().int().optional(),
     MASHOV_YEAR: z.coerce.number().int().optional(),
+    MASHOV_CHILD_GUID: z.string().uuid().optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
@@ -67,6 +70,7 @@ export const env = createEnv({
     MASHOV_PASSWORD: process.env.MASHOV_PASSWORD,
     MASHOV_SCHOOL_ID: process.env.MASHOV_SCHOOL_ID,
     MASHOV_YEAR: process.env.MASHOV_YEAR,
+    MASHOV_CHILD_GUID: process.env.MASHOV_CHILD_GUID,
 
     // Client URL resolution:
     //  - dev: derive from PORT so `PORT=3001 pnpm dev` just works
