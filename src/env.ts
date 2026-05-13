@@ -37,6 +37,16 @@ export const env = createEnv({
       .string()
       .optional()
       .transform((v) => v === "true"),
+
+    // Mashov (Israeli school portal) credentials. All four required to enable
+    // the Mashov tools; if any are missing the tools are not registered.
+    // MASHOV_SCHOOL_ID is the school's "semel" / numeric id, found via the
+    // schools list on https://web.mashov.info. MASHOV_YEAR is the academic
+    // year (e.g. 2026 for 2025-2026).
+    MASHOV_USERNAME: z.string().optional(),
+    MASHOV_PASSWORD: z.string().optional(),
+    MASHOV_SCHOOL_ID: z.coerce.number().int().optional(),
+    MASHOV_YEAR: z.coerce.number().int().optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
@@ -53,6 +63,10 @@ export const env = createEnv({
     REDIS_URL: process.env.REDIS_URL,
     CRON_SECRET: process.env.CRON_SECRET,
     ALLOW_SIGNUPS: process.env.ALLOW_SIGNUPS,
+    MASHOV_USERNAME: process.env.MASHOV_USERNAME,
+    MASHOV_PASSWORD: process.env.MASHOV_PASSWORD,
+    MASHOV_SCHOOL_ID: process.env.MASHOV_SCHOOL_ID,
+    MASHOV_YEAR: process.env.MASHOV_YEAR,
 
     // Client URL resolution:
     //  - dev: derive from PORT so `PORT=3001 pnpm dev` just works

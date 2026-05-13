@@ -1,4 +1,5 @@
 import { generateText, stepCountIs } from "ai";
+import type { ToolSet } from "ai";
 import { db } from "~/server/clients/db";
 import { createCustomTools } from "../tools";
 import { serializeMessages } from "./prompts";
@@ -39,10 +40,13 @@ export async function runMemoryFlush(
       : `anthropic/${anthropicModel}`;
 
     const allCustomTools = createCustomTools(instanceId);
-    const memoryTools = {
-      memory_save: allCustomTools.memory_save,
-      memory_search: allCustomTools.memory_search,
-    };
+    const memoryTools: ToolSet = {};
+    if (allCustomTools.memory_save) {
+      memoryTools.memory_save = allCustomTools.memory_save;
+    }
+    if (allCustomTools.memory_search) {
+      memoryTools.memory_search = allCustomTools.memory_search;
+    }
 
     const contextSummary = serializeMessages(messages);
     const flushPrompt = `Here is the recent conversation context:\n\n${contextSummary}\n\n${FLUSH_USER_PROMPT}`;
