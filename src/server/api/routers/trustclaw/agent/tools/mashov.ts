@@ -349,30 +349,71 @@ export function createMashovTool(
             });
 
             const windowDays = daysBack ?? 7;
-            const cutoffMs =
-              Date.now() - windowDays * 24 * 60 * 60 * 1000;
+            const cutoffMs = Date.now() - windowDays * 24 * 60 * 60 * 1000;
 
-            // Only keep entries with actual homework text AND within the
-            // requested time window. The API often returns lesson summaries
-            // as `remark` with no `homework` — those aren't real assignments.
             const filtered = entries
-              .filter((e) => Boolean(e.homework && e.homework.trim().length > 0))
+              .filter((e) =>
+                Boolean(e.homework && e.homework.trim().length > 0),
+              )
               .filter((e) => {
                 const dateMs = new Date(e.lessonDate).getTime();
                 return Number.isFinite(dateMs) && dateMs >= cutoffMs;
               })
               .sort((a, b) => b.lessonDate.localeCompare(a.lessonDate));
 
-            return {
-              windowDays,
-              count: filtered.length,
-              assignments: filtered.map((e) => ({
+            // Classify each entry by examining the Hebrew text. The same
+            // "homework" field on Mashov can hold real take-home work,
+            // classwork summaries, or "finish at home if not done" hybrids.
+            // Surfacing this as structured metadata helps the agent present
+            // results accurately without having to do Hebrew text analysis.
+            const assignments = filtered.map((e) => {
+              const text = e.homework!;
+              const lower = text;
+              const mentionsHome =
+                lower.includes("בבית") ||
+                lower.includes("לבית") ||
+                lower.includes("שיעורי בית") ||
+                lower.includes("שיעור בית");
+              const startsAsClasswork =
+                lower.startsWith("עבודת כיתה") ||
+                lower.includes("עבודת כיתה");
+              let kind: "homework" | "classwork_with_home" | "classwork_or_note";
+              if (lower.startsWith("שיעורי בית") || lower.startsWith("ש\"ב")) {
+                kind = "homework";
+              } else if (startsAsClasswork && mentionsHome) {
+                kind = "classwork_with_home";
+              } else if (mentionsHome) {
+                kind = "homework";
+              } else {
+                kind = "classwork_or_note";
+              }
+              return {
                 date: e.lessonDate.slice(0, 10),
                 lesson: e.lesson,
                 subject: e.subjectName,
-                homework: e.homework,
+                homework: text,
                 topic: e.remark,
-              })),
+                kind,
+              };
+            });
+
+            const summary = {
+              homework: assignments.filter((a) => a.kind === "homework").length,
+              classworkWithHome: assignments.filter(
+                (a) => a.kind === "classwork_with_home",
+              ).length,
+              classworkOrNote: assignments.filter(
+                (a) => a.kind === "classwork_or_note",
+              ).length,
+            };
+
+            return {
+              windowDays,
+              count: assignments.length,
+              summary,
+              assignments,
+              note:
+                "Every entry here is a real lesson record from Mashov. `kind` classifies whether it's pure homework, classwork with a 'finish at home' note, or just a classwork/lesson summary. Present all of them — let the user decide. Do NOT say 'no homework' when count > 0.",
             };
           }
 

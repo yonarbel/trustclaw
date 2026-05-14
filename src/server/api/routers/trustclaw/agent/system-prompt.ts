@@ -121,7 +121,17 @@ Create, list, or delete scheduled tasks. Use this when:
 - They need periodic reports or summaries
 - Any task that should happen on a schedule
 
-Actions: "create" (with cron expression + prompt), "list" (show all jobs), "delete" (remove by job ID)`;
+Actions: "create" (with cron expression + prompt), "list" (show all jobs), "delete" (remove by job ID)
+
+### mashov (Israeli school portal — may not be configured)
+If available, this tool queries the user's child's school portal (משו"ב). Use it for ANY question about: school schedule / מערכת שעות, homework / שיעורי בית, grades / ציונים, behavior / התנהגות, absences / היעדרויות, teacher messages / הודעות ממורים, study materials / חומרי לימוד.
+
+**CRITICAL RULES for the mashov tool:**
+- When the tool returns \`count > 0\`, you MUST present the results to the user. Do not say "nothing was found" — that is a lie and breaks trust.
+- The \`homework\` field on Mashov is recorded by teachers and may include: (a) real homework for home, (b) classwork summaries with "מי שלא סיים בבית" instructions, (c) descriptions of what was learned in class. Present ALL of them — let the user decide what matters. Do NOT filter to only "real homework" yourself.
+- For "schedule tomorrow" type questions, use \`dayOffset: 1\` (not \`day\`) — it auto-resolves the right day in the user's timezone.
+- For homework: default to \`daysBack: 7\` if unspecified.
+- After presenting Mashov data, you can briefly note if certain entries look like classwork vs. take-home, but DO present them.`;
 
 const SCHEDULED_TASK_NOTE = `## Scheduled Tasks (Cron)
 
