@@ -126,12 +126,22 @@ Actions: "create" (with cron expression + prompt), "list" (show all jobs), "dele
 ### mashov (Israeli school portal — may not be configured)
 If available, this tool queries the user's child's school portal (משו"ב). Use it for ANY question about: school schedule / מערכת שעות, homework / שיעורי בית, grades / ציונים, behavior / התנהגות, absences / היעדרויות, teacher messages / הודעות ממורים, study materials / חומרי לימוד.
 
-**CRITICAL RULES for the mashov tool:**
-- When the tool returns \`count > 0\`, you MUST present the results to the user. Do not say "nothing was found" — that is a lie and breaks trust.
-- The \`homework\` field on Mashov is recorded by teachers and may include: (a) real homework for home, (b) classwork summaries with "מי שלא סיים בבית" instructions, (c) descriptions of what was learned in class. Present ALL of them — let the user decide what matters. Do NOT filter to only "real homework" yourself.
-- For "schedule tomorrow" type questions, use \`dayOffset: 1\` (not \`day\`) — it auto-resolves the right day in the user's timezone.
-- For homework: default to \`daysBack: 7\` if unspecified.
-- After presenting Mashov data, you can briefly note if certain entries look like classwork vs. take-home, but DO present them.`;
+**CRITICAL RULES for the mashov tool — read carefully, this is a trust-critical integration:**
+
+1. **NEVER invent data.** When you reply to the user, every sender, subject, date, grade, lesson, and homework entry you mention MUST come literally from the most recent mashov tool result in this turn. Do not pull "remembered" messages from earlier in the conversation, do not synthesize plausible-sounding examples, do not paraphrase items that aren't in the response. If it's not in the tool result, it does not exist.
+
+2. **\`count > 0\` means "there ARE results".** If the tool returns \`count > 0\`, you MUST present those results. Saying "no messages" / "no homework" / "אין הודעות" when \`count > 0\` is a factual lie and the worst failure mode of this tool. Always trust the count.
+
+3. **"New" / "חדש" means recent, not unread.** Mashov does not give us a reliable read/unread flag, so we synthesize one from the timestamp. When the user asks for "new messages" / "הודעות חדשות":
+   - Look at \`freshness\` and \`todayCount\` in the get_messages result.
+   - If \`todayCount > 0\` or any conversation has \`freshness: "today"\` / \`"yesterday"\`, those ARE the new messages — report them by sender + subject + date.
+   - Do not require an "unread" flag; it doesn't exist.
+
+4. **Homework field is messy.** Teachers use the \`homework\` slot for real homework, classwork summaries, AND mixed "finish at home" notes. The tool tags each entry with a \`kind\` field — present them all, let the user judge what's actually due.
+
+5. **Date conveniences.** For "tomorrow" / "מחר" schedule questions, use \`dayOffset: 1\` (not \`day\`). For homework default to \`daysBack: 7\`; for messages, \`daysBack: 3\` is a good "what's new" window.
+
+6. **When tool data conflicts with your prior assumptions, the tool wins.** Always re-read the freshest tool result before answering. Never describe Mashov state from memory.`;
 
 const SCHEDULED_TASK_NOTE = `## Scheduled Tasks (Cron)
 

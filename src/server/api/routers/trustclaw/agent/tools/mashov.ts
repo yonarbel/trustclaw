@@ -448,28 +448,58 @@ export function createMashovTool(
                 })
               : conversations;
 
+            // Compute server-side freshness so the agent doesn't have to do
+            // date math on raw ISO strings. `daysAgo` is rounded down from
+            // "now in the user's timezone" — 0 = today, 1 = yesterday.
+            const nowMs = Date.now();
+            const decorated = filtered.map((c, idx) => {
+              const head = c.messages[0];
+              const ts = new Date(c.sendTime).getTime();
+              const daysAgo = Number.isFinite(ts)
+                ? Math.floor((nowMs - ts) / (24 * 60 * 60 * 1000))
+                : null;
+              let freshness: "today" | "yesterday" | "this_week" | "older";
+              if (daysAgo === 0) freshness = "today";
+              else if (daysAgo === 1) freshness = "yesterday";
+              else if (daysAgo !== null && daysAgo <= 7) freshness = "this_week";
+              else freshness = "older";
+              return {
+                id: c.conversationId,
+                subject: c.subject,
+                hasAttachments: c.hasAttachments,
+                preventReply: c.preventReply,
+                messageCount: c.messages.length,
+                sender: head?.senderName,
+                date: c.sendTime,
+                daysAgo,
+                freshness,
+                isNewest: idx === 0,
+              };
+            });
+
+            const todayCount = decorated.filter(
+              (c) => c.freshness === "today",
+            ).length;
+
             return {
               windowDays: daysBack,
-              count: filtered.length,
+              count: decorated.length,
+              todayCount,
               // NOTE: `isNew` is intentionally NOT included — Mashov flips
               // it to false on the server as soon as the API is hit, which
               // makes it unreliable as a "user hasn't read this" signal.
-              // Treat every conversation in the window as a real message
-              // the parent received, ordered newest first.
-              conversations: filtered.map((c) => {
-                const head = c.messages[0];
-                return {
-                  id: c.conversationId,
-                  subject: c.subject,
-                  hasAttachments: c.hasAttachments,
-                  preventReply: c.preventReply,
-                  messageCount: c.messages.length,
-                  sender: head?.senderName,
-                  date: c.sendTime,
-                };
-              }),
-              note:
-                "Each entry is a real conversation. Use get_message with the `id` to read the body. Newest first.",
+              // We replace it with `freshness` / `daysAgo` computed on the
+              // server, which is unambiguous and tamper-proof.
+              conversations: decorated,
+              note: [
+                "Each entry is a REAL message that arrived in the parent's inbox.",
+                "STRICT RULES for replying to the user:",
+                "1. You MUST list every conversation in `conversations` — do not skip any.",
+                "2. NEVER invent messages or dates that are not in this array. If something is not here, it does not exist.",
+                "3. When the user asks about 'new messages' (הודעות חדשות), treat any conversation with `freshness: 'today'` or `freshness: 'yesterday'` as new. Mention them explicitly with sender + subject.",
+                "4. If `count > 0` and `todayCount > 0`, you MUST say there ARE new messages today — saying 'no new messages' is a factual error.",
+                "5. Use `get_message` with the `id` if the user wants the body of a specific message.",
+              ].join(" "),
             };
           }
 
